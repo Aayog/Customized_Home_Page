@@ -17,6 +17,16 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app, origins="*", allow_headers=["Content-Type"], methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
+
+@app.after_request
+def add_private_network_header(response):
+    # Required for Chrome/Firefox Private Network Access policy.
+    # Tailscale 100.x.x.x IPs are treated as private network addresses.
+    # Without this header, browsers block requests from public HTTPS pages
+    # (GitHub Pages) to private network targets — resulting in null status codes.
+    response.headers["Access-Control-Allow-Private-Network"] = "true"
+    return response
+
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 

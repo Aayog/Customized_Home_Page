@@ -1,0 +1,19 @@
+[Unit]
+Description=Homelab Dashboard Backend
+After=network.target
+
+[Service]
+User=aayog
+WorkingDirectory=/home/aayog/claude/homelab_dashboard/backend
+EnvironmentFile=/home/aayog/claude/homelab_dashboard/backend/.env
+ExecStart=/home/aayog/claude/homelab_dashboard/backend/venv/bin/gunicorn \
+  --bind 0.0.0.0:5001 \
+  --workers 2 \
+  --certfile ${CERT_FILE} \
+  --keyfile ${KEY_FILE} \
+  app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
