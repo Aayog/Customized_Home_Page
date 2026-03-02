@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/homelab-dashboard/',
+  base: '/Customized_Home_Page/',
   server: {
     proxy: {
       '/api': {
