@@ -4,46 +4,65 @@ on:
   push:
     branches: [main]
 
+# Necessary permissions for GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   deploy-frontend:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
     environment:
       name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Build frontend
+          cache: 'npm'
+          cache-dependency-path: './frontend/package-lock.json'
+
+      - name: Build Frontend
         run: |
           cd frontend
           npm ci
           npm run build
         env:
-          # This tells your frontend how to find your Homelab
+          # Use the environment variable you saved in GitHub
           VITE_API_BASE_URL: ${{ vars.API_BASE_URL }}
-      - uses: actions/upload-pages-artifact@v3
+
+      - name: Fix Jekyll 404s
+        run: touch frontend/dist/.nojekyll
+
+      - name: Upload Artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: frontend/dist
+
       - name: Deploy to GitHub Pages
+        id: deployment
         uses: actions/deploy-pages@v4
 
   deploy-backend:
     runs-on: ubuntu-latest
     environment: prod
     steps:
-      - uses: actions/checkout@v4
-      - name: Install Tailscale
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Connect to Tailscale
         uses: tailscale/github-action@v3
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
-      - name: Deploy backend via SSH
+
+      - name: Deploy Backend via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOMELAB_HOST }}
@@ -54,7 +73,7 @@ jobs:
             cd /home/aayog/claude/homelab_dashboard
             git pull origin main
 
-            # 1. Setup Environment
+            # 1. Setup Environment File
             cat > backend/.env << 'ENVEOF'
             FINNHUB_API_KEY=${{ secrets.FINNHUB_API_KEY }}
             ALPHA_VANTAGE_API_KEY=${{ secrets.ALPHA_VANTAGE_API_KEY }}
@@ -63,10 +82,11 @@ jobs:
             DEFAULT_LON=-87.9065
             ENVEOF
 
-            # 2. Update backend
+            # 2. Update backend dependencies
             cd backend
+            if [ ! -d "venv" ]; then python3 -m venv venv; fi
             source venv/bin/activate
             pip install -r requirements.txt
             
-            # 3. RESTART (The part the other AI forgot!)
+            # 3. Restart the service
             sudo systemctl restart dashboard-backend
