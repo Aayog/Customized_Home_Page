@@ -13,7 +13,6 @@ jobs:
       id-token: write
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,13 +24,12 @@ jobs:
           npm ci
           npm run build
         env:
+          # This tells your frontend how to find your Homelab
           VITE_API_BASE_URL: ${{ vars.API_BASE_URL }}
-      - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:
           path: frontend/dist
       - name: Deploy to GitHub Pages
-        id: deployment
         uses: actions/deploy-pages@v4
 
   deploy-backend:
@@ -55,7 +53,8 @@ jobs:
             set -e
             cd /home/aayog/claude/homelab_dashboard
             git pull origin main
-            # Write .env
+
+            # 1. Setup Environment
             cat > backend/.env << 'ENVEOF'
             FINNHUB_API_KEY=${{ secrets.FINNHUB_API_KEY }}
             ALPHA_VANTAGE_API_KEY=${{ secrets.ALPHA_VANTAGE_API_KEY }}
@@ -63,8 +62,11 @@ jobs:
             DEFAULT_LAT=43.0389
             DEFAULT_LON=-87.9065
             ENVEOF
-            # Update backend
+
+            # 2. Update backend
             cd backend
             source venv/bin/activate
             pip install -r requirements.txt
+            
+            # 3. RESTART (The part the other AI forgot!)
             sudo systemctl restart dashboard-backend
