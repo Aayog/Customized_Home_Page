@@ -1,53 +1,51 @@
-name: Deploy to Homelab
+name: Deploy Dashboard
 
 on:
   push:
     branches: [main]
 
 jobs:
-  build-and-deploy:
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+        env:
+          VITE_API_BASE_URL: ${{ vars.API_BASE_URL }}
+      - uses: actions/configure-pages@v4
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  deploy-backend:
     runs-on: ubuntu-latest
     environment: prod
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Install Tailscale
         uses: tailscale/github-action@v3
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
-
-      - name: Set up Node.js 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Build frontend
-        run: |
-          cd frontend
-          npm ci
-          npm run build
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Python dependencies
-        run: |
-          cd backend
-          pip install -r requirements.txt
-
-      - name: Run tests (if any)
-        run: |
-          cd backend
-          python -m pytest tests/ 2>/dev/null || echo "No tests found, skipping"
-        continue-on-error: true
-
-      - name: Deploy via SSH
+      - name: Deploy backend via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOMELAB_HOST }}
@@ -57,24 +55,16 @@ jobs:
             set -e
             cd /home/aayog/claude/homelab_dashboard
             git pull origin main
-            
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            
-            # Write .env file from secrets
-            echo "FINNHUB_API_KEY=${{ secrets.FINNHUB_API_KEY }}" > backend/.env
-            echo "ALPHA_VANTAGE_API_KEY=${{ secrets.ALPHA_VANTAGE_API_KEY }}" >> backend/.env
-            echo "GNEWS_API_KEY=${{ secrets.GNEWS_API_KEY }}" >> backend/.env
-            echo "DEFAULT_LAT=43.0389" >> backend/.env
-            echo "DEFAULT_LON=-87.9065" >> backend/.env
-
-            # Build frontend
-            cd frontend
-            npm ci
-            npm run build
-
-            # Install Python deps and restart backend
-            cd ../backend
+            # Write .env
+            cat > backend/.env << 'ENVEOF'
+            FINNHUB_API_KEY=${{ secrets.FINNHUB_API_KEY }}
+            ALPHA_VANTAGE_API_KEY=${{ secrets.ALPHA_VANTAGE_API_KEY }}
+            GNEWS_API_KEY=${{ secrets.GNEWS_API_KEY }}
+            DEFAULT_LAT=43.0389
+            DEFAULT_LON=-87.9065
+            ENVEOF
+            # Update backend
+            cd backend
             source venv/bin/activate
             pip install -r requirements.txt
             sudo systemctl restart dashboard-backend

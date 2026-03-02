@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import CardShell from './CardShell'
 import { useApi } from '../hooks/useApi'
+import { API_BASE } from '../config'
 
 const REFRESH_MS = 30 * 60 * 1000
 
@@ -29,7 +30,7 @@ export default function Weather({ onRemove }) {
   const [cityInput, setCityInput] = useState(city)
 
   const { data, loading, error, refetch, lastUpdated } = useApi(
-    `/api/weather?lat=${lat}&lon=${lon}`,
+    `${API_BASE}/api/weather?lat=${lat}&lon=${lon}`,
     REFRESH_MS,
     [lat, lon],
   )

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { ResponsiveGridLayout } from 'react-grid-layout'
+import { API_BASE } from './config'
 import StockHighlights from './components/StockHighlights'
 import Watchlist from './components/Watchlist'
 import AlertSignals from './components/AlertSignals'
@@ -83,7 +84,7 @@ export default function App() {
 
   // Load layout from backend on mount
   useEffect(() => {
-    fetch('/api/layout')
+    fetch(`${API_BASE}/api/layout`)
       .then(r => r.json())
       .then(({ layout }) => {
         if (layout) {
@@ -99,7 +100,7 @@ export default function App() {
   const persistLayout = useCallback((newLayouts, newVisible) => {
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      fetch('/api/layout', {
+      fetch(`${API_BASE}/api/layout`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

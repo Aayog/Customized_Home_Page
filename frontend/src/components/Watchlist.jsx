@@ -1,20 +1,21 @@
 import React, { useState } from 'react'
 import CardShell from './CardShell'
 import { useApi } from '../hooks/useApi'
+import { API_BASE } from '../config'
 
 const REFRESH_MS = 5 * 60 * 1000
 
 export default function Watchlist({ onRemove }) {
   const [addInput, setAddInput] = useState('')
   const { data, loading, error, refetch, lastUpdated } = useApi(
-    '/api/stocks/watchlist',
+    `${API_BASE}/api/stocks/watchlist`,
     REFRESH_MS,
   )
 
   async function addSymbol() {
     const sym = addInput.trim().toUpperCase()
     if (!sym) return
-    await fetch('/api/stocks/watchlist', {
+    await fetch(`${API_BASE}/api/stocks/watchlist`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ symbol: sym }),
@@ -24,7 +25,7 @@ export default function Watchlist({ onRemove }) {
   }
 
   async function removeSymbol(sym) {
-    await fetch('/api/stocks/watchlist', {
+    await fetch(`${API_BASE}/api/stocks/watchlist`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ symbol: sym }),

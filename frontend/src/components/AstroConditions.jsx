@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import SunCalc from 'suncalc'
 import CardShell from './CardShell'
 import { useApi } from '../hooks/useApi'
+import { API_BASE } from '../config'
 
 const REFRESH_MS = 60 * 60 * 1000
 
@@ -80,7 +81,7 @@ export default function AstroConditions({ onRemove }) {
   }, [lat, lon])
 
   const { data, loading, error, refetch, lastUpdated } = useApi(
-    `/api/weather?lat=${lat}&lon=${lon}`,
+    `${API_BASE}/api/weather?lat=${lat}&lon=${lon}`,
     REFRESH_MS,
     [lat, lon],
   )

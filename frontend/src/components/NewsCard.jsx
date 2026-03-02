@@ -1,12 +1,13 @@
 import React from 'react'
 import CardShell from './CardShell'
 import { useApi } from '../hooks/useApi'
+import { API_BASE } from '../config'
 
 const REFRESH_MS = 3 * 60 * 60 * 1000
 
 export default function NewsCard({ onRemove }) {
   const { data, loading, error, refetch, lastUpdated } = useApi(
-    '/api/news',
+    `${API_BASE}/api/news`,
     REFRESH_MS,
   )
 

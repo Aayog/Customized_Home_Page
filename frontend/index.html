@@ -5,6 +5,28 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Homelab Dashboard</title>
+    <!-- GitHub Pages SPA redirect receiver -->
+    <script>
+      (function() {
+        var redirect = sessionStorage.redirect;
+        delete sessionStorage.redirect;
+        if (redirect && redirect !== location.href) {
+          history.replaceState(null, null, redirect);
+        }
+        // Also handle the ?p= query param set by 404.html
+        var l = window.location;
+        if (l.search.slice(1,3) === 'p=') {
+          var decoded = l.search.slice(1).split('&').slice(1).join('&');
+          history.replaceState(
+            null, null,
+            l.pathname.split('/').slice(0, -1).join('/') + '/' +
+            l.search.slice(1).split('&')[0].slice(2).replace(/~and~/g, '&') +
+            (decoded ? '?' + decoded.replace(/~and~/g, '&') : '') +
+            l.hash
+          );
+        }
+      }());
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {

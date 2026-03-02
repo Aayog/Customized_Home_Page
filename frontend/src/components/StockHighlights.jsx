@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import CardShell from './CardShell'
 import { useApi } from '../hooks/useApi'
+import { API_BASE } from '../config'
 
 const DEFAULT_SYMBOLS = 'AAPL,MSFT,GOOGL,AMZN,NVDA,TSLA,META'
 const REFRESH_MS = 5 * 60 * 1000
@@ -10,7 +11,7 @@ export default function StockHighlights({ onRemove }) {
   const [input, setInput] = useState(symbols)
 
   const { data, loading, error, refetch, lastUpdated } = useApi(
-    `/api/stocks/quotes?symbols=${symbols}`,
+    `${API_BASE}/api/stocks/quotes?symbols=${symbols}`,
     REFRESH_MS,
     [symbols],
   )

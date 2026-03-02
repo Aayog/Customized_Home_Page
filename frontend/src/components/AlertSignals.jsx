@@ -1,6 +1,7 @@
 import React from 'react'
 import CardShell from './CardShell'
 import { useApi } from '../hooks/useApi'
+import { API_BASE } from '../config'
 
 const REFRESH_MS = 60 * 60 * 1000 // 1 hour (signals computed once daily)
 
@@ -12,7 +13,7 @@ const COLOR_MAP = {
 
 export default function AlertSignals({ onRemove }) {
   const { data, loading, error, refetch, lastUpdated } = useApi(
-    '/api/stocks/signals',
+    `${API_BASE}/api/stocks/signals`,
     REFRESH_MS,
   )
 
