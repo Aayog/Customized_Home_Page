@@ -80,6 +80,8 @@ jobs:
             GNEWS_API_KEY=${{ secrets.GNEWS_API_KEY }}
             DEFAULT_LAT=43.0389
             DEFAULT_LON=-87.9065
+            CERT_FILE=/home/aayog/.certs/homelab.crt
+            KEY_FILE=/home/aayog/.certs/homelab.key
             ENVEOF
 
             # 2. Update backend dependencies
