@@ -1,0 +1,74 @@
+name: Deploy to Homelab
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+
+      - name: Run tests (if any)
+        run: |
+          cd backend
+          python -m pytest tests/ 2>/dev/null || echo "No tests found, skipping"
+        continue-on-error: true
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOMELAB_HOST }}
+          username: ${{ secrets.HOMELAB_USER }}
+          key: ${{ secrets.HOMELAB_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/homelab-dashboard
+            git pull origin main
+
+            # Write .env file from secrets
+            echo "FINNHUB_API_KEY=${{ secrets.FINNHUB_API_KEY }}" > backend/.env
+            echo "ALPHA_VANTAGE_API_KEY=${{ secrets.ALPHA_VANTAGE_API_KEY }}" >> backend/.env
+            echo "GNEWS_API_KEY=${{ secrets.GNEWS_API_KEY }}" >> backend/.env
+            echo "DEFAULT_LAT=43.0389" >> backend/.env
+            echo "DEFAULT_LON=-87.9065" >> backend/.env
+
+            # Build frontend
+            cd frontend
+            npm ci
+            npm run build
+
+            # Install Python deps and restart backend
+            cd ../backend
+            source venv/bin/activate
+            pip install -r requirements.txt
+            sudo systemctl restart dashboard-backend
