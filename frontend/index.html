@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Homelab Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              surface: '#1e2130',
+              card: '#252a3c',
+              border: '#2e3450',
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body { background-color: #151823; }
+      /* react-grid-layout */
+      .react-grid-item.react-grid-placeholder {
+        background: rgba(99,102,241,0.15);
+        border: 2px dashed rgba(99,102,241,0.4);
+        border-radius: 12px;
+      }
+      .react-resizable-handle {
+        opacity: 0.4;
+      }
+      .react-resizable-handle:hover {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body class="dark">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
