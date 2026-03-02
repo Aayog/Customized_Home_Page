@@ -422,4 +422,12 @@ def health():
 
 if __name__ == "__main__":
     cache.init_db()
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    cert = os.getenv("CERT_FILE")
+    key = os.getenv("KEY_FILE")
+
+    if cert and key:
+        # Starts in HTTPS mode
+        app.run(host="0.0.0.0", port=5001, ssl_context=(cert, key))
+    else:
+        # Falls back to HTTP if no certs found (for local testing)
+        app.run(host="0.0.0.0", port=5001)
