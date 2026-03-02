@@ -57,7 +57,10 @@ jobs:
             set -e
             cd /home/aayog/claude/homelab_dashboard
             git pull origin main
-
+            
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            
             # Write .env file from secrets
             echo "FINNHUB_API_KEY=${{ secrets.FINNHUB_API_KEY }}" > backend/.env
             echo "ALPHA_VANTAGE_API_KEY=${{ secrets.ALPHA_VANTAGE_API_KEY }}" >> backend/.env
