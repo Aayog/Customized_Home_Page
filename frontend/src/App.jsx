@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { ResponsiveGridLayout } from 'react-grid-layout'
 import StockHighlights from './components/StockHighlights'
 import Watchlist from './components/Watchlist'
@@ -17,36 +17,60 @@ const CARD_REGISTRY = {
   news:     { label: 'AI News',          icon: '📰', component: NewsCard },
 }
 
+// Minimum size constraints per card so they can't be shrunk to uselessness
+const CARD_CONSTRAINTS = {
+  stocks:    { minW: 3, minH: 5 },
+  watchlist: { minW: 3, minH: 6 },
+  signals:   { minW: 3, minH: 5 },
+  weather:   { minW: 2, minH: 5 },
+  astro:     { minW: 2, minH: 5 },
+  news:      { minW: 3, minH: 5 },
+}
+
+// Clean 3-column default layout (12-col grid at lg, 10-col at md, 6-col at sm)
+// Watchlist and Signals are taller; Weather and Astro are shorter.
 const DEFAULT_LAYOUT = {
   lg: [
-    { i: 'stocks',    x: 0, y: 0, w: 4, h: 8 },
-    { i: 'watchlist', x: 4, y: 0, w: 4, h: 9 },
-    { i: 'signals',   x: 8, y: 0, w: 4, h: 7 },
-    { i: 'weather',   x: 0, y: 8, w: 4, h: 8 },
-    { i: 'astro',     x: 4, y: 9, w: 4, h: 8 },
-    { i: 'news',      x: 8, y: 7, w: 4, h: 9 },
+    { i: 'stocks',    x: 0, y: 0,  w: 4, h: 8,  minW: 3, minH: 5 },
+    { i: 'watchlist', x: 4, y: 0,  w: 4, h: 10, minW: 3, minH: 6 },
+    { i: 'signals',   x: 8, y: 0,  w: 4, h: 9,  minW: 3, minH: 5 },
+    { i: 'weather',   x: 0, y: 8,  w: 4, h: 7,  minW: 2, minH: 5 },
+    { i: 'astro',     x: 4, y: 10, w: 4, h: 7,  minW: 2, minH: 5 },
+    { i: 'news',      x: 8, y: 9,  w: 4, h: 9,  minW: 3, minH: 5 },
   ],
   md: [
-    { i: 'stocks',    x: 0, y: 0,  w: 5, h: 8 },
-    { i: 'watchlist', x: 5, y: 0,  w: 5, h: 9 },
-    { i: 'signals',   x: 0, y: 8,  w: 5, h: 7 },
-    { i: 'weather',   x: 5, y: 9,  w: 5, h: 8 },
-    { i: 'astro',     x: 0, y: 15, w: 5, h: 8 },
-    { i: 'news',      x: 5, y: 17, w: 5, h: 9 },
+    { i: 'stocks',    x: 0, y: 0,  w: 5, h: 8,  minW: 3, minH: 5 },
+    { i: 'watchlist', x: 5, y: 0,  w: 5, h: 10, minW: 3, minH: 6 },
+    { i: 'signals',   x: 0, y: 8,  w: 5, h: 9,  minW: 3, minH: 5 },
+    { i: 'weather',   x: 5, y: 10, w: 5, h: 7,  minW: 2, minH: 5 },
+    { i: 'astro',     x: 0, y: 17, w: 5, h: 7,  minW: 2, minH: 5 },
+    { i: 'news',      x: 5, y: 17, w: 5, h: 9,  minW: 3, minH: 5 },
   ],
   sm: [
-    { i: 'stocks',    x: 0, y: 0,  w: 6, h: 8 },
-    { i: 'watchlist', x: 0, y: 8,  w: 6, h: 9 },
-    { i: 'signals',   x: 0, y: 17, w: 6, h: 7 },
-    { i: 'weather',   x: 0, y: 24, w: 6, h: 8 },
-    { i: 'astro',     x: 0, y: 32, w: 6, h: 8 },
-    { i: 'news',      x: 0, y: 40, w: 6, h: 9 },
+    { i: 'stocks',    x: 0, y: 0,  w: 6, h: 8,  minW: 3, minH: 5 },
+    { i: 'watchlist', x: 0, y: 8,  w: 6, h: 10, minW: 3, minH: 6 },
+    { i: 'signals',   x: 0, y: 18, w: 6, h: 9,  minW: 3, minH: 5 },
+    { i: 'weather',   x: 0, y: 27, w: 6, h: 7,  minW: 2, minH: 5 },
+    { i: 'astro',     x: 0, y: 34, w: 6, h: 7,  minW: 2, minH: 5 },
+    { i: 'news',      x: 0, y: 41, w: 6, h: 9,  minW: 3, minH: 5 },
   ],
 }
 
+// Ensure min-size constraints survive a save/load round-trip
+function applyConstraints(layouts) {
+  const result = {}
+  for (const [bp, items] of Object.entries(layouts)) {
+    result[bp] = items.map(item => ({
+      ...item,
+      ...(CARD_CONSTRAINTS[item.i] || {}),
+    }))
+  }
+  return result
+}
+
 const BREAKPOINTS = { lg: 1200, md: 768, sm: 0 }
-const COLS = { lg: 12, md: 10, sm: 6 }
-const ROW_HEIGHT = 40
+const COLS       = { lg: 12,   md: 10,  sm: 6 }
+const ROW_HEIGHT = 36
 
 export default function App() {
   const [visibleCards, setVisibleCards] = useState(Object.keys(CARD_REGISTRY))
@@ -54,13 +78,16 @@ export default function App() {
   const [layoutLoaded, setLayoutLoaded] = useState(false)
   const [showAddMenu, setShowAddMenu] = useState(false)
 
+  // Ref for debouncing layout persistence
+  const debounceRef = useRef(null)
+
   // Load layout from backend on mount
   useEffect(() => {
     fetch('/api/layout')
       .then(r => r.json())
       .then(({ layout }) => {
         if (layout) {
-          setLayouts(layout.layouts || DEFAULT_LAYOUT)
+          setLayouts(applyConstraints(layout.layouts || DEFAULT_LAYOUT))
           setVisibleCards(layout.visibleCards || Object.keys(CARD_REGISTRY))
         }
       })
@@ -68,14 +95,18 @@ export default function App() {
       .finally(() => setLayoutLoaded(true))
   }, [])
 
+  // Debounced persist — 500ms after the last drag/resize event
   const persistLayout = useCallback((newLayouts, newVisible) => {
-    fetch('/api/layout', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        layout: { layouts: newLayouts, visibleCards: newVisible },
-      }),
-    }).catch(() => {})
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      fetch('/api/layout', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          layout: { layouts: newLayouts, visibleCards: newVisible },
+        }),
+      }).catch(() => {})
+    }, 500)
   }, [])
 
   function onLayoutChange(currentLayout, allLayouts) {
@@ -171,6 +202,7 @@ export default function App() {
           onLayoutChange={onLayoutChange}
           margin={[12, 12]}
           containerPadding={[0, 0]}
+          compactType="vertical"
           useCSSTransforms
           isResizable
           isDraggable
