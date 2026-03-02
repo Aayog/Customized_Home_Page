@@ -55,7 +55,7 @@ jobs:
           key: ${{ secrets.HOMELAB_SSH_KEY }}
           script: |
             set -e
-            cd ~/homelab-dashboard
+            cd /home/aayog/claude/homelab_dashboard
             git pull origin main
 
             # Write .env file from secrets
