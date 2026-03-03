@@ -8,17 +8,15 @@ import Weather from './components/Weather'
 import AstroConditions from './components/AstroConditions'
 import NewsCard from './components/NewsCard'
 
-
 const CARD_REGISTRY = {
-  stocks:   { label: 'Stock Highlights', icon: '📈', component: StockHighlights },
-  watchlist:{ label: 'Watchlist',         icon: '👁',  component: Watchlist },
-  signals:  { label: 'Alert / Signals',  icon: '🔔', component: AlertSignals },
-  weather:  { label: 'Weather',          icon: '🌤', component: Weather },
-  astro:    { label: 'Astro Conditions', icon: '🔭', component: AstroConditions },
-  news:     { label: 'AI News',          icon: '📰', component: NewsCard },
+  stocks:    { label: 'Stock Highlights', icon: '📈', component: StockHighlights },
+  watchlist: { label: 'Watchlist',        icon: '👁',  component: Watchlist },
+  signals:   { label: 'Alert / Signals', icon: '🔔', component: AlertSignals },
+  weather:   { label: 'Weather',         icon: '🌤', component: Weather },
+  astro:     { label: 'Astro Conditions',icon: '🔭', component: AstroConditions },
+  news:      { label: 'AI News',         icon: '📰', component: NewsCard },
 }
 
-// Minimum size constraints per card so they can't be shrunk to uselessness
 const CARD_CONSTRAINTS = {
   stocks:    { minW: 3, minH: 5 },
   watchlist: { minW: 3, minH: 6 },
@@ -29,7 +27,6 @@ const CARD_CONSTRAINTS = {
 }
 
 // Clean 3-column default layout (12-col grid at lg, 10-col at md, 6-col at sm)
-// Watchlist and Signals are taller; Weather and Astro are shorter.
 const DEFAULT_LAYOUT = {
   lg: [
     { i: 'stocks',    x: 0, y: 0,  w: 4, h: 8,  minW: 3, minH: 5 },
@@ -57,7 +54,6 @@ const DEFAULT_LAYOUT = {
   ],
 }
 
-// Ensure min-size constraints survive a save/load round-trip
 function applyConstraints(layouts) {
   const result = {}
   for (const [bp, items] of Object.entries(layouts)) {
@@ -72,17 +68,61 @@ function applyConstraints(layouts) {
 const BREAKPOINTS = { lg: 1200, md: 768, sm: 0 }
 const COLS       = { lg: 12,   md: 10,  sm: 6 }
 const ROW_HEIGHT = 36
+const LS_KEY = 'homelab_layout_v1'
+
+function lsLoad() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY)) } catch { return null }
+}
+function lsSave(layouts, visibleCards) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify({ layouts, visibleCards })) } catch {}
+}
+
+// Live clock for the header
+function LiveClock() {
+  const [now, setNow] = useState(new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <div className="text-right hidden md:block select-none">
+      <div className="text-sm font-mono text-slate-300 leading-tight">
+        {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      </div>
+      <div className="text-xs" style={{ color: '#475569' }}>
+        {now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
+      </div>
+    </div>
+  )
+}
 
 export default function App() {
   const [visibleCards, setVisibleCards] = useState(Object.keys(CARD_REGISTRY))
   const [layouts, setLayouts] = useState(DEFAULT_LAYOUT)
   const [layoutLoaded, setLayoutLoaded] = useState(false)
   const [showAddMenu, setShowAddMenu] = useState(false)
-
-  // Ref for debouncing layout persistence
+  // Start with a reasonable default width so the grid renders correctly even before measurement
+  const [containerWidth, setContainerWidth] = useState(
+    typeof window !== 'undefined' ? Math.max(window.innerWidth - 32, 320) : 1200
+  )
+  const containerRef = useRef(null)
   const debounceRef = useRef(null)
 
-  // Load layout from backend on mount
+  // Attach ResizeObserver to the grid container once it's rendered.
+  // We depend on `layoutLoaded` so the effect re-runs after <main> appears in the DOM.
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(([entry]) => {
+      const w = entry.contentRect.width
+      if (w > 0) setContainerWidth(w)
+    })
+    ro.observe(el)
+    setContainerWidth(el.clientWidth) // immediate first measurement
+    return () => ro.disconnect()
+  }, [layoutLoaded])
+
+  // Load layout: backend → localStorage → DEFAULT_LAYOUT
   useEffect(() => {
     fetch(`${API_BASE}/api/layout`)
       .then(r => r.json())
@@ -90,14 +130,29 @@ export default function App() {
         if (layout) {
           setLayouts(applyConstraints(layout.layouts || DEFAULT_LAYOUT))
           setVisibleCards(layout.visibleCards || Object.keys(CARD_REGISTRY))
+        } else {
+          // Nothing in backend — try localStorage
+          const local = lsLoad()
+          if (local) {
+            setLayouts(applyConstraints(local.layouts || DEFAULT_LAYOUT))
+            setVisibleCards(local.visibleCards || Object.keys(CARD_REGISTRY))
+          }
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        // Backend unavailable — fall back to localStorage
+        const local = lsLoad()
+        if (local) {
+          setLayouts(applyConstraints(local.layouts || DEFAULT_LAYOUT))
+          setVisibleCards(local.visibleCards || Object.keys(CARD_REGISTRY))
+        }
+      })
       .finally(() => setLayoutLoaded(true))
   }, [])
 
-  // Debounced persist — 500ms after the last drag/resize event
+  // Save to localStorage immediately, then debounce the backend write
   const persistLayout = useCallback((newLayouts, newVisible) => {
+    lsSave(newLayouts, newVisible)
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       fetch(`${API_BASE}/api/layout`, {
@@ -133,53 +188,112 @@ export default function App() {
 
   if (!layoutLoaded) {
     return (
-      <div className="flex items-center justify-center h-screen text-slate-400">
-        Loading dashboard...
+      <div
+        className="flex items-center justify-center h-screen"
+        style={{ background: '#0f1119' }}
+      >
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative w-10 h-10">
+            <div
+              className="absolute inset-0 rounded-full"
+              style={{ border: '2px solid #1e2438' }}
+            />
+            <div
+              className="absolute inset-0 rounded-full animate-spin"
+              style={{ border: '2px solid transparent', borderTopColor: '#6366f1' }}
+            />
+          </div>
+          <p className="text-sm tracking-wide" style={{ color: '#475569' }}>
+            Loading dashboard…
+          </p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen">
-      {/* Toolbar */}
+    <div className="min-h-screen" style={{ background: '#0f1119' }}>
+      {/* ── Header ── */}
       <header
-        className="flex items-center gap-4 px-6 py-3 sticky top-0 z-50"
-        style={{ background: '#0f1119', borderBottom: '1px solid #1e2130' }}
+        className="flex items-center gap-3 px-5 h-14 sticky top-0 z-50"
+        style={{
+          background: 'rgba(15,17,25,0.88)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          borderBottom: '1px solid #1a1f30',
+        }}
       >
-        <span className="text-lg font-bold text-indigo-400">🏠 Homelab Dashboard</span>
-        <span className="flex-1" />
+        {/* Logo */}
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-lg leading-none">🏠</span>
+          <span className="font-bold text-sm tracking-tight text-slate-100">Homelab</span>
+          <span
+            className="text-xs px-1.5 py-0.5 rounded font-bold tracking-widest"
+            style={{ background: '#1a1f30', color: '#6366f1', border: '1px solid #252d45' }}
+          >
+            DASH
+          </span>
+        </div>
 
-        {/* Add Card */}
+        <div className="flex-1" />
+        <LiveClock />
+
+        {/* Add Widget */}
         <div className="relative">
           <button
             onClick={() => setShowAddMenu(s => !s)}
-            className="text-sm bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-1.5 rounded-lg flex items-center gap-2"
-            style={{ border: 'none', cursor: 'pointer' }}
+            className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg"
+            style={{
+              background: showAddMenu ? '#1e284a' : '#1a1f30',
+              color: '#818cf8',
+              border: `1px solid ${showAddMenu ? '#3730a3' : '#252d45'}`,
+              cursor: 'pointer',
+              transition: 'background 150ms, border-color 150ms',
+            }}
           >
-            <span>+ Add Card</span>
+            <svg viewBox="0 0 14 14" fill="none" width="13" height="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M7 2v10M2 7h10" />
+            </svg>
+            <span>Add Widget</span>
             {hiddenCards.length > 0 && (
-              <span className="bg-indigo-800 text-xs px-1.5 py-0.5 rounded-full">{hiddenCards.length}</span>
+              <span
+                className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+                style={{ background: '#1e1a4a', color: '#818cf8' }}
+              >
+                {hiddenCards.length}
+              </span>
             )}
           </button>
+
           {showAddMenu && (
             <div
-              className="absolute right-0 mt-2 w-52 rounded-xl overflow-hidden shadow-2xl z-50"
-              style={{ background: '#1e2130', border: '1px solid #2e3450' }}
+              className="absolute right-0 mt-2 w-56 rounded-xl overflow-hidden z-50"
+              style={{
+                background: '#13172a',
+                border: '1px solid #252d45',
+                boxShadow: '0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.08)',
+              }}
             >
+              <div className="px-3 pt-3 pb-2">
+                <p className="text-xs font-semibold tracking-widest" style={{ color: '#334155' }}>
+                  WIDGETS
+                </p>
+              </div>
               {hiddenCards.length === 0 ? (
-                <p className="text-xs text-slate-500 px-4 py-3">All cards visible</p>
+                <p className="text-xs px-4 py-4 text-center" style={{ color: '#334155' }}>
+                  All widgets are visible
+                </p>
               ) : (
-                hiddenCards.map(id => (
-                  <button
-                    key={id}
-                    onClick={() => addCard(id)}
-                    className="w-full text-left px-4 py-2.5 text-sm text-slate-200 hover:bg-slate-700/50 flex items-center gap-2"
-                    style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                  >
-                    <span>{CARD_REGISTRY[id].icon}</span>
-                    <span>{CARD_REGISTRY[id].label}</span>
-                  </button>
-                ))
+                <div className="pb-1.5">
+                  {hiddenCards.map(id => (
+                    <AddMenuItem
+                      key={id}
+                      icon={CARD_REGISTRY[id].icon}
+                      label={CARD_REGISTRY[id].label}
+                      onClick={() => addCard(id)}
+                    />
+                  ))}
+                </div>
               )}
             </div>
           )}
@@ -191,9 +305,10 @@ export default function App() {
         <div className="fixed inset-0 z-40" onClick={() => setShowAddMenu(false)} />
       )}
 
-      {/* Grid */}
-      <main className="p-4">
+      {/* ── Grid ── */}
+      <main ref={containerRef} className="p-4">
         <ResponsiveGridLayout
+          width={containerWidth}
           className="layout"
           layouts={layouts}
           breakpoints={BREAKPOINTS}
@@ -220,13 +335,51 @@ export default function App() {
         </ResponsiveGridLayout>
 
         {visibleCards.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-32 text-slate-500">
-            <p className="text-5xl mb-4">📭</p>
-            <p className="text-lg font-semibold mb-2">No cards visible</p>
-            <p className="text-sm">Use the &ldquo;+ Add Card&rdquo; button to restore cards.</p>
+          <div className="flex flex-col items-center justify-center py-40">
+            <div className="text-5xl mb-5 opacity-20">📭</div>
+            <p className="text-base font-semibold mb-1" style={{ color: '#475569' }}>
+              Dashboard is empty
+            </p>
+            <p className="text-sm mb-6" style={{ color: '#334155' }}>
+              Use "Add Widget" to restore your cards.
+            </p>
+            <button
+              onClick={() => setShowAddMenu(true)}
+              className="px-4 py-2 rounded-lg text-sm font-medium"
+              style={{
+                background: '#1a1f30',
+                color: '#818cf8',
+                border: '1px solid #252d45',
+                cursor: 'pointer',
+              }}
+            >
+              + Add Widget
+            </button>
           </div>
         )}
       </main>
     </div>
+  )
+}
+
+function AddMenuItem({ icon, label, onClick }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="w-full text-left flex items-center gap-3 px-3.5 py-2.5 text-sm"
+      style={{
+        background: hovered ? '#1e2438' : 'transparent',
+        border: 'none',
+        cursor: 'pointer',
+        color: hovered ? '#e2e8f0' : '#94a3b8',
+        transition: 'background 120ms, color 120ms',
+      }}
+    >
+      <span className="text-base">{icon}</span>
+      <span className="font-medium">{label}</span>
+    </button>
   )
 }
