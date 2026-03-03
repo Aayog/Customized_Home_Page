@@ -90,8 +90,5 @@ jobs:
             source venv/bin/activate
             pip install -r requirements.txt
 
-            # 3. Install/update systemd service from the repo (avoids heredoc indentation issues)
-            sudo cp /home/aayog/claude/homelab_dashboard/backend/dashboard-backend.service \
-              /etc/systemd/system/dashboard-backend.service
-            # 4. Restart the service
+            # 3. Restart the service
             sudo systemctl restart dashboard-backend
