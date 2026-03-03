@@ -90,5 +90,10 @@ jobs:
             source venv/bin/activate
             pip install -r requirements.txt
 
-            # 3. Restart the service
+            # 3. Fix cert ownership — 'tailscale cert' run as root leaves files owned by
+            #    root:root, making the key unreadable by the service user (aayog). This causes
+            #    gunicorn to fail the SSL handshake on every connection (PermissionError).
+            sudo chown aayog:aayog /home/aayog/.certs/homelab.crt /home/aayog/.certs/homelab.key 2>/dev/null || true
+
+            # 4. Restart the service
             sudo systemctl restart dashboard-backend

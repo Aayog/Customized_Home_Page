@@ -4,12 +4,13 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   margin: 0;
   color: #e2e8f0;
-  background-color: #151823;
+  background-color: #0f1119;
   min-height: 100vh;
 }
 
@@ -19,51 +20,80 @@ a {
 }
 a:hover { text-decoration: underline; }
 
-/* react-grid-layout base styles */
+/* ── react-grid-layout ───────────────────────────────────────────────────── */
+
 .react-grid-layout {
   position: relative;
-  transition: height 200ms ease;
 }
+
 .react-grid-item {
-  transition: all 200ms ease;
-  transition-property: left, top, width, height;
+  transition: transform 200ms ease, width 200ms ease, height 200ms ease;
 }
+
 .react-grid-item.cssTransforms {
   transition-property: transform, width, height;
 }
+
+/* Don't animate while the user is actively dragging or resizing */
 .react-grid-item.resizing {
   transition: none;
-  z-index: 1;
+  z-index: 4;
   will-change: width, height;
 }
+
 .react-grid-item.react-draggable-dragging {
   transition: none;
-  z-index: 3;
+  z-index: 10;
   will-change: transform;
-  opacity: 0.9;
+  opacity: 0.85;
+  filter: drop-shadow(0 16px 40px rgba(0,0,0,0.6));
 }
+
 .react-grid-item.dropping {
   visibility: hidden;
 }
+
+/* Ghost placeholder shown while dragging */
 .react-grid-item.react-grid-placeholder {
-  background: rgba(99,102,241,0.12);
-  border: 2px dashed rgba(99,102,241,0.4);
+  background: rgba(99,102,241,0.08);
+  border: 2px dashed rgba(99,102,241,0.35);
   border-radius: 12px;
   z-index: 2;
   user-select: none;
-}
-.react-resizable-handle {
-  position: absolute;
-  width: 20px;
-  height: 20px;
-  bottom: 0;
-  right: 0;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 6'%3E%3Cpath d='M6 6H0L6 0z' fill='%236366f1' opacity='0.5'/%3E%3C/svg%3E") no-repeat bottom right;
-  cursor: se-resize;
-  z-index: 1;
+  transition: all 100ms ease;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2e3450; border-radius: 3px; }
+/* Resize handle — triangle in bottom-right corner */
+.react-resizable-handle {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  bottom: 3px;
+  right: 3px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 6'%3E%3Cpath d='M6 6H0L6 0z' fill='%236366f1' opacity='0.4'/%3E%3C/svg%3E") no-repeat bottom right;
+  background-size: 10px 10px;
+  cursor: se-resize;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 150ms;
+  border-radius: 0 0 10px 0;
+}
+
+.react-grid-item:hover .react-resizable-handle,
+.react-grid-item.resizing .react-resizable-handle {
+  opacity: 1;
+}
+
+/* ── Spin animation (used for refresh icon) ──────────────────────────────── */
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Scrollbars ──────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar          { width: 5px; height: 5px; }
+::-webkit-scrollbar-track    { background: transparent; }
+::-webkit-scrollbar-thumb    { background: #252d45; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3d4a6b; }
