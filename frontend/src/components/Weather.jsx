@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import CardShell from './CardShell'
 import { useApi } from '../hooks/useApi'
 import { API_BASE } from '../config'
@@ -16,21 +16,31 @@ const WMO_ICONS = {
   95: '⛈', 96: '⛈', 99: '⛈',
 }
 
-// Milwaukee, WI defaults
-const DEFAULT_LAT = '43.0389'
-const DEFAULT_LON = '-87.9065'
-const DEFAULT_CITY = 'Milwaukee, WI'
-
 export default function Weather({ onRemove }) {
-  const [lat, setLat] = useState(DEFAULT_LAT)
-  const [lon, setLon] = useState(DEFAULT_LON)
-  const [city, setCity] = useState(DEFAULT_CITY)
-  const [latInput, setLatInput] = useState(lat)
-  const [lonInput, setLonInput] = useState(lon)
-  const [cityInput, setCityInput] = useState(city)
+  const [lat, setLat] = useState(null)
+  const [lon, setLon] = useState(null)
+  const [city, setCity] = useState('')
+  const [latInput, setLatInput] = useState('')
+  const [lonInput, setLonInput] = useState('')
+  const [cityInput, setCityInput] = useState('')
+
+  // Auto-detect location from IP on first load
+  useEffect(() => {
+    fetch(`${API_BASE}/api/geolocate`)
+      .then(r => r.json())
+      .then(geo => {
+        setLat(geo.lat)
+        setLon(geo.lon)
+        setCity(geo.city || '')
+        setLatInput(geo.lat)
+        setLonInput(geo.lon)
+        setCityInput(geo.city || '')
+      })
+      .catch(() => {})  // silently fall back — backend uses .env defaults for weather anyway
+  }, [])
 
   const { data, loading, error, refetch, lastUpdated } = useApi(
-    `${API_BASE}/api/weather?lat=${lat}&lon=${lon}`,
+    lat && lon ? `${API_BASE}/api/weather?lat=${lat}&lon=${lon}` : null,
     REFRESH_MS,
     [lat, lon],
   )

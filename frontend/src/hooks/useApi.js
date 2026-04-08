@@ -8,6 +8,7 @@ export function useApi(url, intervalMs = null, deps = []) {
   const abortRef = useRef(null)
 
   const fetchData = useCallback(async () => {
+    if (!url) return
     if (abortRef.current) abortRef.current.abort()
     abortRef.current = new AbortController()
 

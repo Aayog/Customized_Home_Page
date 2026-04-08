@@ -33,6 +33,10 @@ FINNHUB_KEY = os.getenv("FINNHUB_API_KEY", "")
 ALPHA_VANTAGE_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "")
 GNEWS_KEY = os.getenv("GNEWS_API_KEY", "")
 
+# Default location from .env (fallback: Atlanta)
+DEFAULT_LAT = os.getenv("DEFAULT_LAT", "33.7501")
+DEFAULT_LON = os.getenv("DEFAULT_LON", "-84.3885")
+
 # TTLs in seconds
 TTL_STOCKS = 5 * 60          # 5 min
 TTL_SIGNALS = 24 * 60 * 60   # 24 hours
@@ -233,10 +237,34 @@ def _fetch_historical(symbol: str) -> tuple[list, list]:
 
 # ─── Weather ───────────────────────────────────────────────────────────────────
 
+@app.route("/api/geolocate")
+def geolocate():
+    """Return approximate lat/lon/city for the caller's IP via ip-api.com (free, no key)."""
+    # X-Forwarded-For is set by proxies; fall back to direct remote addr
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+    # Loopback / private IPs → return .env defaults
+    if not ip or ip.startswith(("127.", "10.", "192.168.", "::1")):
+        return jsonify({"lat": DEFAULT_LAT, "lon": DEFAULT_LON, "city": "", "source": "default"})
+    cached = cache.get(f"geo:{ip}")
+    if cached:
+        return jsonify(cached)
+    data = _fetch_json("http://ip-api.com/json/" + ip, params={"fields": "status,lat,lon,city,regionName,country"})
+    if not data or data.get("status") != "success":
+        return jsonify({"lat": DEFAULT_LAT, "lon": DEFAULT_LON, "city": "", "source": "default"})
+    result = {
+        "lat": str(data["lat"]),
+        "lon": str(data["lon"]),
+        "city": f"{data.get('city', '')}, {data.get('regionName', '')}".strip(", "),
+        "source": "ip",
+    }
+    cache.set(f"geo:{ip}", result, 24 * 60 * 60)  # cache 24h
+    return jsonify(result)
+
+
 @app.route("/api/weather")
 def weather():
-    lat = request.args.get("lat", "43.0389")   # Milwaukee, WI default
-    lon = request.args.get("lon", "-87.9065")
+    lat = request.args.get("lat", DEFAULT_LAT)
+    lon = request.args.get("lon", DEFAULT_LON)
 
     cache_key = f"weather:{lat}:{lon}"
     data = cache.get(cache_key)
